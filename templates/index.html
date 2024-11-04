@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Markdown por Voz</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <div class="container-fluid">
+            <span class="navbar-brand">Editor Markdown por Voz</span>
+            <div class="d-flex">
+                <div class="btn-group me-2">
+                    <button id="lang-toggle" class="btn btn-outline-secondary" onclick="voiceController.toggleLanguage()">
+                        <span class="current-lang">ES</span>
+                    </button>
+                </div>
+                <button id="mic-button" class="btn btn-outline-primary me-2" onclick="voiceController.toggleRecording()">
+                    <img src="{{ url_for('static', filename='icons/mic.svg') }}" alt="Micrófono" width="24" height="24">
+                </button>
+                <button class="btn btn-success" onclick="saveDocument()">Guardar</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <div class="row editor-container">
+            <div class="col-md-6 editor-pane">
+                <textarea id="markdown-editor" 
+                          class="form-control"
+                          oninput="updatePreview()"
+                          placeholder="Comienza a escribir o usa comandos de voz..."></textarea>
+            </div>
+            <div class="col-md-6 editor-pane">
+                <div id="preview"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <div class="col">
+                <h5 class="commands-title">Comandos de voz disponibles:</h5>
+                <div id="spanish-commands" class="commands-list">
+                    <ul class="list-group">
+                        <li class="list-group-item">"título 1-6" - Crear encabezado de nivel 1-6</li>
+                        <li class="list-group-item">"subtítulo" o "título dos" - Crear subtítulo (nivel 2)</li>
+                        <li class="list-group-item">"apartado" o "título tres" - Crear apartado (nivel 3)</li>
+                        <li class="list-group-item">"punto y aparte" o "nuevo párrafo" - Crear nuevo párrafo</li>
+                        <li class="list-group-item">"bloque de codigo" o "código [lenguaje]" - Crear bloque de código</li>
+                        <li class="list-group-item">"tabla" - Crear tabla</li>
+                        <li class="list-group-item">"fila" o "nueva fila" - Añadir fila a la tabla</li>
+                        <li class="list-group-item">"negrita" - Texto en negrita</li>
+                        <li class="list-group-item">"cursiva" - Texto en cursiva</li>
+                        <li class="list-group-item">"lista" - Crear elemento de lista</li>
+                        <li class="list-group-item">"enlace" - Insertar enlace</li>
+                        <li class="list-group-item">"cita" - Crear bloque de cita</li>
+                    </ul>
+                </div>
+                <div id="english-commands" class="commands-list d-none">
+                    <ul class="list-group">
+                        <li class="list-group-item">"title 1-6" - Create heading level 1-6</li>
+                        <li class="list-group-item">"subtitle" or "heading two" - Create subtitle (level 2)</li>
+                        <li class="list-group-item">"section" or "heading three" - Create section (level 3)</li>
+                        <li class="list-group-item">"new paragraph" - Create new paragraph</li>
+                        <li class="list-group-item">"code block [language]" - Create code block</li>
+                        <li class="list-group-item">"table" - Create table</li>
+                        <li class="list-group-item">"new row" - Add table row</li>
+                        <li class="list-group-item">"bold" - Bold text</li>
+                        <li class="list-group-item">"italic" - Italic text</li>
+                        <li class="list-group-item">"list" - Create list item</li>
+                        <li class="list-group-item">"link" - Insert link</li>
+                        <li class="list-group-item">"quote" - Create quote block</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/voice_recognition.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/markdown_preview.js') }}"></script>
+</body>
+</html>
