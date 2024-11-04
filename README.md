@@ -86,3 +86,7 @@ python main.py
 
 Para reportar bugs o sugerir nuevas funcionalidades, por favor crear un issue en el repositorio.
 To report bugs or suggest new features, please create an issue in the repository.
+
+## LICENSE
+
+This project is under the MIT license, contact me for more details.
