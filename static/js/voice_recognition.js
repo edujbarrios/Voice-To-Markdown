@@ -1,14 +1,45 @@
 class VoiceController {
     constructor() {
-        this.recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn('SpeechRecognition API is not supported in this browser.');
+            this.supported = false;
+            return;
+        }
+        this.supported = true;
+        this.recognition = new SpeechRecognition();
         this.recognition.lang = 'es-ES';
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
         this.isRecording = false;
+        this.isRestarting = false;
         this.currentLanguage = 'es';
         this.commandFeedback = document.createElement('div');
         this.setupFeedback();
         this.setupRecognition();
+    }
+
+    /** Localized UI strings keyed by language. */
+    t(key) {
+        const strings = {
+            es: {
+                voiceOn: 'Reconocimiento de voz activado',
+                voiceOff: 'Reconocimiento de voz desactivado',
+                error: 'Error en reconocimiento',
+                detected: 'Comando detectado',
+                executed: 'Comando ejecutado',
+                unsupported: 'El reconocimiento de voz no es compatible con este navegador',
+            },
+            en: {
+                voiceOn: 'Voice recognition activated',
+                voiceOff: 'Voice recognition deactivated',
+                error: 'Recognition error',
+                detected: 'Command detected',
+                executed: 'Command executed',
+                unsupported: 'Voice recognition is not supported in this browser',
+            },
+        };
+        return (strings[this.currentLanguage] || strings.en)[key] || key;
     }
 
     setupFeedback() {
@@ -17,37 +48,34 @@ class VoiceController {
         document.body.appendChild(this.commandFeedback);
     }
 
+    /** Display a feedback toast. Escapes HTML to prevent XSS. */
     showFeedback(message, isCommand = false) {
-        const feedbackMessage = this.currentLanguage === 'es' ? message : this.translateFeedback(message);
-        this.commandFeedback.innerHTML = `
-            <div class="alert ${isCommand ? 'alert-success' : 'alert-info'} alert-dismissible fade show" role="alert">
-                ${feedbackMessage}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `;
+        const escaped = message
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert ${isCommand ? 'alert-success' : 'alert-info'} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.textContent = message;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close';
+        closeBtn.setAttribute('data-bs-dismiss', 'alert');
+        closeBtn.setAttribute('aria-label', 'Close');
+        alertDiv.appendChild(closeBtn);
+
+        this.commandFeedback.innerHTML = '';
+        this.commandFeedback.appendChild(alertDiv);
+
         setTimeout(() => {
-            const alert = this.commandFeedback.querySelector('.alert');
-            if (alert) {
-                alert.remove();
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
             }
         }, 3000);
-    }
-
-    translateFeedback(message) {
-        const translations = {
-            'Reconocimiento de voz activado': 'Voice recognition activated',
-            'Reconocimiento de voz desactivado': 'Voice recognition deactivated',
-            'Error en reconocimiento': 'Recognition error',
-            'Comando detectado': 'Command detected',
-            'Comando ejecutado': 'Command executed'
-        };
-
-        for (const [es, en] of Object.entries(translations)) {
-            if (message.includes(es)) {
-                return message.replace(es, en);
-            }
-        }
-        return message;
     }
 
     setupRecognition() {
@@ -55,25 +83,35 @@ class VoiceController {
             const result = event.results[event.results.length - 1];
             if (result.isFinal) {
                 const command = result[0].transcript.toLowerCase().trim();
-                this.showFeedback(`Comando detectado: "${command}"`, false);
+                this.showFeedback(`${this.t('detected')}: "${command}"`, false);
                 this.processCommand(command);
             }
         };
 
         this.recognition.onerror = (event) => {
-            console.error('Error en reconocimiento:', event.error);
-            this.showFeedback(`Error en reconocimiento: ${event.error}`, false);
+            console.error('Recognition error:', event.error);
+            this.showFeedback(`${this.t('error')}: ${event.error}`, false);
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                this.isRecording = false;
+                document.getElementById('mic-button').classList.remove('active');
+            }
         };
 
         this.recognition.onstart = () => {
-            this.showFeedback('Reconocimiento de voz activado', true);
+            this.isRestarting = false;
+            this.showFeedback(this.t('voiceOn'), true);
         };
 
         this.recognition.onend = () => {
-            if (this.isRecording) {
-                this.recognition.start();
+            if (this.isRestarting) {
+                // Language switch restart — start with new language
+                this.isRestarting = false;
+                try { this.recognition.start(); } catch (_) { /* already running */ }
+            } else if (this.isRecording) {
+                // Auto-restart continuous recognition
+                try { this.recognition.start(); } catch (_) { /* already running */ }
             } else {
-                this.showFeedback('Reconocimiento de voz desactivado', true);
+                this.showFeedback(this.t('voiceOff'), true);
             }
         };
     }
@@ -84,16 +122,17 @@ class VoiceController {
         let text = editor.value;
         let commandFound = false;
 
-        const commandPatterns = this.currentLanguage === 'es' ? this.getSpanishPatterns() : this.getEnglishPatterns();
+        const commandPatterns = this.currentLanguage === 'es'
+            ? this.getSpanishPatterns()
+            : this.getEnglishPatterns();
 
-        // Process commands
         for (const [key, pattern] of Object.entries(commandPatterns)) {
             const match = command.match(pattern.regex);
             if (match) {
                 commandFound = true;
                 const insertion = pattern.process ? pattern.process(match) : pattern.template;
                 text = this.insertAtCursor(text, cursorPos, insertion);
-                this.showFeedback(`Comando ejecutado: ${key}`, true);
+                this.showFeedback(`${this.t('executed')}: ${key}`, true);
                 break;
             }
         }
@@ -108,60 +147,68 @@ class VoiceController {
         updatePreview();
     }
 
+    /** Clamp heading level to valid Markdown range 1–6. */
+    clampLevel(value) {
+        const n = parseInt(value, 10);
+        if (isNaN(n) || n < 1) return 1;
+        if (n > 6) return 6;
+        return n;
+    }
+
     getSpanishPatterns() {
         return {
-            titulo: {
-                regex: /título(\s+(\d))?|encabezado(\s+(\d))?/,
-                process: (match) => {
-                    const level = match[2] || match[4] || '1';
-                    return '#'.repeat(parseInt(level)) + ' ';
-                }
-            },
             subtitulo: {
-                regex: /subtítulo|título dos|título 2/,
+                regex: /^(?:subtítulo|subtitulo|título dos|titulo dos|título 2|titulo 2)$/,
                 template: '## '
             },
             apartado: {
-                regex: /apartado|título tres|título 3/,
+                regex: /^(?:apartado|título tres|titulo tres|título 3|titulo 3)$/,
                 template: '### '
             },
+            titulo: {
+                regex: /^(?:t[ií]tulo|encabezado|header)(?:\s+([1-6]))?$/,
+                process: (match) => {
+                    const level = this.clampLevel(match[1] || '1');
+                    return '#'.repeat(level) + ' ';
+                }
+            },
             parrafo: {
-                regex: /punto y aparte|nuevo párrafo|párrafo nuevo/,
+                regex: /^(?:punto y aparte|nuevo párrafo|nuevo parrafo|párrafo nuevo|parrafo nuevo)$/,
                 template: '\n\n'
             },
             codigo: {
-                regex: /código(\s+en\s+)?(\w+)?|bloque de código(\s+en\s+)?(\w+)?/,
+                regex: /^(?:bloque de c[oó]digo|c[oó]digo)(?:\s+(?:en\s+)?(\w+))?$/,
                 process: (match) => {
-                    const lang = match[2] || match[4] || '';
+                    const lang = match[1] || '';
                     return `\n\`\`\`${lang}\n\n\`\`\`\n`;
                 }
             },
             tabla: {
-                regex: /tabla|crear tabla|insertar tabla/,
+                regex: /^(?:tabla|crear tabla|insertar tabla)$/,
                 template: '\n| Columna 1 | Columna 2 | Columna 3 |\n|-----------|-----------|------------|\n| Celda 1   | Celda 2   | Celda 3    |\n'
             },
             fila: {
-                regex: /fila|nueva fila|agregar fila/,
+                regex: /^(?:fila|nueva fila|agregar fila)$/,
                 template: '\n| Celda 1   | Celda 2   | Celda 3    |'
             },
             negrita: {
-                regex: /negrita|texto en negrita|resaltar/,
+                regex: /^(?:negrita|texto en negrita|resaltar)$/,
                 template: '**texto en negrita**'
             },
             cursiva: {
-                regex: /cursiva|texto en cursiva|itálica/,
+                regex: /^(?:cursiva|texto en cursiva|it[aá]lica)$/,
                 template: '*texto en cursiva*'
             },
             lista: {
-                regex: /lista|elemento de lista|viñeta/,
+                regex: /^(?:lista|elemento de lista|viñeta)$/,
                 template: '\n- '
             },
             enlace: {
-                regex: /enlace|link|hipervínculo/,
+                regex: /^(?:enlace|link|hipervínculo)$/,
                 template: '[texto del enlace](url)'
             },
             cita: {
-                regex: /cita|citar|bloque de cita/,
+                regex: /^(?:cita|citar|bloque de cita)$/,
                 template: '\n> '
             }
         };
@@ -169,58 +216,58 @@ class VoiceController {
 
     getEnglishPatterns() {
         return {
-            title: {
-                regex: /title(\s+(\d))?|heading(\s+(\d))?|header(\s+(\d))?/,
-                process: (match) => {
-                    const level = match[2] || match[4] || match[6] || '1';
-                    return '#'.repeat(parseInt(level)) + ' ';
-                }
-            },
             subtitle: {
-                regex: /subtitle|heading two|header 2|title two/,
+                regex: /^(?:subtitle|heading two|header 2|title two)$/,
                 template: '## '
             },
             section: {
-                regex: /section|heading three|header 3|title three/,
+                regex: /^(?:section|heading three|header 3|title three)$/,
                 template: '### '
             },
+            title: {
+                regex: /^(?:title|heading|header)(?:\s+([1-6]))?$/,
+                process: (match) => {
+                    const level = this.clampLevel(match[1] || '1');
+                    return '#'.repeat(level) + ' ';
+                }
+            },
             paragraph: {
-                regex: /paragraph|new paragraph|line break/,
+                regex: /^(?:paragraph|new paragraph|line break)$/,
                 template: '\n\n'
             },
             code: {
-                regex: /code(\s+in\s+)?(\w+)?|code block(\s+in\s+)?(\w+)?/,
+                regex: /^(?:code block|code)(?:\s+(?:in\s+)?(\w+))?$/,
                 process: (match) => {
-                    const lang = match[2] || match[4] || '';
+                    const lang = match[1] || '';
                     return `\n\`\`\`${lang}\n\n\`\`\`\n`;
                 }
             },
             table: {
-                regex: /table|create table|insert table/,
+                regex: /^(?:table|create table|insert table)$/,
                 template: '\n| Column 1 | Column 2 | Column 3 |\n|-----------|-----------|------------|\n| Cell 1   | Cell 2   | Cell 3    |\n'
             },
             row: {
-                regex: /row|new row|table row/,
+                regex: /^(?:row|new row|table row)$/,
                 template: '\n| Cell 1   | Cell 2   | Cell 3    |'
             },
             bold: {
-                regex: /bold|strong|bold text/,
+                regex: /^(?:bold|strong|bold text)$/,
                 template: '**bold text**'
             },
             italic: {
-                regex: /italic|italics|em/,
+                regex: /^(?:italic|italics|emphasized)$/,
                 template: '*italic text*'
             },
             list: {
-                regex: /list|bullet|item/,
+                regex: /^(?:list|bullet|list item)$/,
                 template: '\n- '
             },
             link: {
-                regex: /link|hyperlink|url/,
+                regex: /^(?:link|hyperlink)$/,
                 template: '[link text](url)'
             },
             quote: {
-                regex: /quote|blockquote|citation/,
+                regex: /^(?:quote|blockquote|citation)$/,
                 template: '\n> '
             }
         };
@@ -233,33 +280,53 @@ class VoiceController {
     toggleLanguage() {
         this.currentLanguage = this.currentLanguage === 'es' ? 'en' : 'es';
         this.recognition.lang = this.currentLanguage === 'es' ? 'es-ES' : 'en-US';
-        
+
         // Update UI elements
         document.querySelector('.current-lang').textContent = this.currentLanguage.toUpperCase();
         document.getElementById('spanish-commands').classList.toggle('d-none');
         document.getElementById('english-commands').classList.toggle('d-none');
-        
-        // Update title text
+
+        // Update bilingual UI text
         const commandsTitle = document.querySelector('.commands-title');
-        commandsTitle.textContent = this.currentLanguage === 'es' ? 
-            'Comandos de voz disponibles:' : 
-            'Available voice commands:';
-            
-        // Restart recognition if it's running
+        commandsTitle.textContent = this.currentLanguage === 'es'
+            ? 'Comandos de voz disponibles:'
+            : 'Available voice commands:';
+
+        const navTitle = document.querySelector('.navbar-brand');
+        navTitle.textContent = this.currentLanguage === 'es'
+            ? 'Editor Markdown por Voz'
+            : 'Voice Markdown Editor';
+
+        const saveBtn = document.querySelector('#save-button');
+        if (saveBtn) {
+            saveBtn.textContent = this.currentLanguage === 'es' ? 'Guardar' : 'Save';
+        }
+
+        const editor = document.getElementById('markdown-editor');
+        editor.placeholder = this.currentLanguage === 'es'
+            ? 'Comienza a escribir o usa comandos de voz...'
+            : 'Start typing or use voice commands...';
+
+        // Restart recognition if it's running, using flag to avoid double-start
         if (this.isRecording) {
+            this.isRestarting = true;
             this.recognition.stop();
-            this.recognition.start();
         }
     }
 
     toggleRecording() {
+        if (!this.supported) {
+            this.showFeedback(this.t('unsupported'), false);
+            return;
+        }
+
         if (this.isRecording) {
-            this.recognition.stop();
             this.isRecording = false;
+            this.recognition.stop();
             document.getElementById('mic-button').classList.remove('active');
         } else {
-            this.recognition.start();
             this.isRecording = true;
+            this.recognition.start();
             document.getElementById('mic-button').classList.add('active');
         }
     }
