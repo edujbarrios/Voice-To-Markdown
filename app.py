@@ -48,4 +48,5 @@ def save():
     response = make_response(markdown_text)
     response.headers['Content-Type'] = 'text/markdown; charset=utf-8'
     response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
     return response

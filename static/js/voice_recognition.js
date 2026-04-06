@@ -48,14 +48,8 @@ class VoiceController {
         document.body.appendChild(this.commandFeedback);
     }
 
-    /** Display a feedback toast. Escapes HTML to prevent XSS. */
+    /** Display a feedback toast. Uses textContent to prevent XSS. */
     showFeedback(message, isCommand = false) {
-        const escaped = message
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert ${isCommand ? 'alert-success' : 'alert-info'} alert-dismissible fade show`;
         alertDiv.setAttribute('role', 'alert');
@@ -255,7 +249,7 @@ class VoiceController {
                 template: '**bold text**'
             },
             italic: {
-                regex: /^(?:italic|italics|emphasized)$/,
+                regex: /^(?:italic|italics|em|emphasized)$/,
                 template: '*italic text*'
             },
             list: {
