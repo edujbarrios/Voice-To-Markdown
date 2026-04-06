@@ -316,12 +316,20 @@ class VoiceController {
 
         if (this.isRecording) {
             this.isRecording = false;
-            this.recognition.stop();
+            try {
+                this.recognition.stop();
+            } catch (_) { /* not running */ }
             document.getElementById('mic-button').classList.remove('active');
         } else {
-            this.isRecording = true;
-            this.recognition.start();
-            document.getElementById('mic-button').classList.add('active');
+            try {
+                this.recognition.start();
+                this.isRecording = true;
+                document.getElementById('mic-button').classList.add('active');
+            } catch (e) {
+                this.isRecording = false;
+                console.error('Failed to start recognition:', e);
+                this.showFeedback(`${this.t('error')}: ${e.message}`, false);
+            }
         }
     }
 }
