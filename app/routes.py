@@ -1,3 +1,5 @@
+import re
+
 from flask import Blueprint, make_response, render_template, request, jsonify
 import markdown2
 
@@ -42,8 +44,13 @@ def save():
     if not filename.endswith('.md'):
         filename += '.md'
 
+    # Sanitize filename: keep only safe characters to prevent header injection
+    filename = re.sub(r'[^\w \-.]', '', filename).strip()
+    if not filename or filename == '.md':
+        filename = 'document.md'
+
     response = make_response(markdown_text)
     response.headers['Content-Type'] = 'text/markdown; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['Content-Disposition'] = f"attachment; filename=\"{filename}\""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
