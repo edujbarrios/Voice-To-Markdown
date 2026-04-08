@@ -1,21 +1,20 @@
-import secrets
+import re
 
-from flask import Flask, make_response, render_template, request, jsonify
+from flask import Blueprint, make_response, render_template, request, jsonify
 import markdown2
 
-from commands.spanish_commands import SPANISH_COMMANDS
-from commands.english_commands import ENGLISH_COMMANDS
+from app.commands.spanish_commands import SPANISH_COMMANDS
+from app.commands.english_commands import ENGLISH_COMMANDS
 
-app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
+main = Blueprint('main', __name__)
 
 
-@app.route('/')
+@main.route('/')
 def index():
     return render_template('index.html')
 
 
-@app.route('/commands/<language>')
+@main.route('/commands/<language>')
 def get_commands(language):
     """Return command definitions for the requested language."""
     if language == 'es':
@@ -25,7 +24,7 @@ def get_commands(language):
     return jsonify({'error': 'Unsupported language'}), 400
 
 
-@app.route('/preview', methods=['POST'])
+@main.route('/preview', methods=['POST'])
 def preview():
     markdown_text = request.json.get('markdown', '')
     html_content = markdown2.markdown(markdown_text, extras=[
@@ -37,7 +36,7 @@ def preview():
     return jsonify({'html': html_content})
 
 
-@app.route('/save', methods=['POST'])
+@main.route('/save', methods=['POST'])
 def save():
     markdown_text = request.json.get('markdown', '')
     filename = request.json.get('filename', 'document.md')
@@ -45,8 +44,13 @@ def save():
     if not filename.endswith('.md'):
         filename += '.md'
 
+    # Sanitize filename: keep only safe characters to prevent header injection
+    filename = re.sub(r'[^\w \-.]', '', filename).strip()
+    if not filename or filename == '.md':
+        filename = 'document.md'
+
     response = make_response(markdown_text)
     response.headers['Content-Type'] = 'text/markdown; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['Content-Disposition'] = f"attachment; filename=\"{filename}\""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
