@@ -5,8 +5,8 @@
 Editor de Markdown controlado por voz con comandos en español e inglés y vista previa en tiempo real.
 
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
-![Flask](https://img.shields.io/badge/flask-3.x-green.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)
+![Node.js](https://img.shields.io/badge/node.js-18%2B-green.svg)
 
 ## Características
 
@@ -18,8 +18,8 @@ Editor de Markdown controlado por voz con comandos en español e inglés y vista
 
 ## Prerrequisitos
 
-- Python 3.8+
-- Flask 3.x
+- Node.js 18+
+- npm o yarn
 - Navegador web con soporte de SpeechRecognition (se recomienda Chrome)
 
 ## Instalación
@@ -31,24 +31,30 @@ git clone https://github.com/edujbarrios/Voice-To-Markdown.git
 cd Voice-To-Markdown
 ```
 
-2. Crear un entorno virtual (recomendado)
+2. Instalar dependencias
 
 ```bash
-python -m venv venv
-source venv/bin/activate   # Linux/macOS
-venv\Scripts\activate      # Windows
+npm install
 ```
 
-3. Instalar dependencias
+3. Compilar el proyecto
 
 ```bash
-pip install -r requirements.txt
+npm run build
 ```
 
 ## Ejecución
 
+### Producción
+
 ```bash
-python main.py
+npm start
+```
+
+### Desarrollo
+
+```bash
+npm run dev
 ```
 
 Abrir en el navegador: <http://localhost:5000>
@@ -74,29 +80,30 @@ Abrir en el navegador: <http://localhost:5000>
 
 ```
 .
-├── main.py                             # Punto de entrada de la aplicación
-├── requirements.txt                    # Dependencias de Python
-├── app/
-│   ├── __init__.py                     # Fábrica de la aplicación Flask
-│   ├── routes.py                       # Definiciones de rutas (Blueprint)
-│   ├── commands/
-│   │   ├── __init__.py
-│   │   ├── spanish_commands.py         # Definiciones de comandos en español
-│   │   └── english_commands.py         # Definiciones de comandos en inglés
-│   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css              # Estilos personalizados
-│   │   ├── icons/
-│   │   │   └── mic.svg               # Ícono del micrófono
-│   │   └── js/
-│   │       ├── markdown_preview.js    # Vista previa con debounce y guardado
-│   │       └── voice_recognition.js   # Controlador de comandos de voz
-│   └── templates/
-│       └── index.html                  # Plantilla principal de la interfaz
+├── package.json                        # Dependencias de Node.js
+├── tsconfig.json                       # Configuración TypeScript (servidor)
+├── tsconfig.client.json                # Configuración TypeScript (cliente)
+├── src/
+│   ├── server/
+│   │   ├── index.ts                    # Punto de entrada del servidor Express
+│   │   ├── routes.ts                   # Definiciones de rutas API
+│   │   └── commands/
+│   │       ├── index.ts                # Exportación barrel de comandos
+│   │       ├── englishCommands.ts      # Definiciones de comandos en inglés
+│   │       └── spanishCommands.ts      # Definiciones de comandos en español
+│   ├── client/
+│   │   ├── main.ts                     # Punto de entrada del cliente
+│   │   ├── markdownPreview.ts          # Funciones de vista previa y guardado
+│   │   └── voiceRecognition.ts         # Controlador de comandos de voz
+│   └── public/
+│       ├── index.html                  # Interfaz principal
+│       ├── css/
+│       │   └── style.css               # Estilos personalizados
+│       └── icons/
+│           └── mic.svg                 # Ícono del micrófono
+├── dist/                               # Salida compilada (ignorada en git)
 ├── docs/
 │   └── README_ES.md                    # Esta documentación en español
-├── tests/                              # Directorio de pruebas (futuro)
-│   └── __init__.py
 ├── LICENSE
 └── .gitignore
 ```

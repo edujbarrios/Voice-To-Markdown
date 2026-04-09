@@ -1,0 +1,44 @@
+{
+  "name": "voice-to-markdown",
+  "version": "1.0.0",
+  "description": "Voice-controlled Markdown editor with real-time preview",
+  "main": "dist/server/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:server && npm run build:client && npm run build:assets",
+    "build:server": "tsc",
+    "build:client": "esbuild src/client/main.ts --bundle --outfile=dist/public/js/bundle.js --format=iife --target=es2020 --sourcemap",
+    "build:assets": "cp -r src/public/index.html src/public/css src/public/icons dist/public/",
+    "dev": "npm run build:assets && concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "esbuild src/client/main.ts --bundle --outfile=dist/public/js/bundle.js --format=iife --target=es2020 --sourcemap --watch",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "markdown",
+    "voice",
+    "speech-recognition",
+    "editor",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.3.2",
+    "marked": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
